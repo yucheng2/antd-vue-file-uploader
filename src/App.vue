@@ -38,7 +38,6 @@ function getBase64(file: File) {
 }
 
 // 获取视频第一帧作为预览图
-// 获取视频第一帧作为预览图
 async function getVideoPreview(file: File) {
   return new Promise((resolve, reject) => {
     const video = document.createElement('video');
@@ -80,8 +79,7 @@ let player: Player | null = null;
 const fileList = ref<UploadProps['fileList']>([]);
 watchEffect(() => {
   console.log(fileList.value);
-
-})
+});
 
 const handleCancel = () => {
   previewVisible.value = false;
@@ -94,37 +92,35 @@ const handleCancel = () => {
 
 const handlePreview = async (file: UploadProps['fileList'][number]) => {
   if (!file.url && !file.preview) {
-    file.preview = (await getBase64(file.originFileObj)) as string;
-  }
-  const url = file.url || file.preview;
-  if (typeof url === 'string') {
-    previewImage.value = url;
-    previewVisible.value = true;
-
-    if (typeof file.url === 'string') {
-      previewTitle.value = file.name || file.url.substring(file.url.lastIndexOf('/') + 1);
-    } else {
-      previewTitle.value = file.name || 'Unknown';
-    }
-
-    await nextTick();
-
-    if (player) {
-      player.destroy();
-    }
-    const videoElement = document.getElementById('video-player');
-    if (videoElement) {
-      player = new Player({
-        id: 'video-player',
-        url: previewImage.value,
-        download: true,
-        width: '100%',
-        autoplay: true,
-        preload: 'auto', // 预加载视频
-      });
-    }
+    const tempUrl = URL.createObjectURL(file.originFileObj as File);
+    previewImage.value = tempUrl;
+    file.preview = tempUrl;
   } else {
-    console.error('Invalid URL provided for preview:', url);
+    previewImage.value = file.url || file.preview;
+  }
+  previewVisible.value = true;
+
+  if (typeof file.url === 'string') {
+    previewTitle.value = file.name || file.url.substring(file.url.lastIndexOf('/') + 1);
+  } else {
+    previewTitle.value = file.name || 'Unknown';
+  }
+
+  await nextTick();
+
+  if (player) {
+    player.destroy();
+  }
+  const videoElement = document.getElementById('video-player');
+  if (videoElement) {
+    player = new Player({
+      id: 'video-player',
+      url: previewImage.value,
+      download: true,
+      width: '100%',
+      autoplay: true,
+      preload: 'auto', // 预加载视频
+    });
   }
 };
 
@@ -158,7 +154,6 @@ const customRequest = async ({ file, onSuccess, onError, file: { uid } }: { file
     onError(error);
   }
 };
-
 </script>
 
 <style scoped>

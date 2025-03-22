@@ -128,19 +128,30 @@ const handlePreview = async (file: UploadProps['fileList'][number]) => {
   }
 };
 
-// 自定义上传请求，将文件保存为 DataURL
+// 自定义上传请求，直接上传文件
 const customRequest = async ({ file, onSuccess, onError, file: { uid } }: { file: File; onSuccess: (response: any) => void; onError: (error: any) => void; file: { uid: string } }) => {
   try {
-    const dataURL = await getBase64(file);
-    const previewDataUrl = await getVideoPreview(file);
-    // 模拟上传成功
-    const response = { status: 'success', dataURL, previewDataUrl };
-    onSuccess(response);
-    // 更新 fileList 中对应文件的 url 和 preview 属性
-    const targetFile = fileList.value.find(f => f.uid === uid);
-    if (targetFile) {
-      targetFile.url = dataURL;
-      targetFile.thumbUrl = previewDataUrl;
+    // 创建 formData 对象
+    const formData = new FormData();
+    formData.append('file', file);
+    // 替换为实际的后端接口地址
+    const response = await fetch('http://localhost:3000/upload', {
+      method: 'POST',
+      body: formData
+    });
+    if (response.ok) {
+      const data = await response.json();
+      const url = data.url; // 假设服务器返回视频的 URL
+      const previewDataUrl = await getVideoPreview(file);
+      onSuccess({ status: 'success', url, previewDataUrl });
+      // 更新 fileList 中对应文件的 url 和 preview 属性
+      const targetFile = fileList.value.find(f => f.uid === uid);
+      if (targetFile) {
+        targetFile.url = url;
+        targetFile.thumbUrl = previewDataUrl;
+      }
+    } else {
+      throw new Error('上传失败');
     }
   } catch (error) {
     console.error('文件上传失败:', error);

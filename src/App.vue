@@ -20,7 +20,7 @@
 import { PlusOutlined } from '@ant-design/icons-vue';
 import type { UploadProps } from 'ant-design-vue';
 import { Upload } from 'ant-design-vue';
-import { nextTick, ref, watchEffect } from 'vue';
+import { nextTick, onUnmounted, ref, watchEffect } from 'vue';
 import Player from 'xgplayer';
 import 'xgplayer/dist/index.min.css';
 
@@ -99,6 +99,22 @@ const handleCancel = () => {
   }
 };
 
+// 用于存储文件和其对应的 URL
+const fileUrlMap = new Map<File, string>();
+
+/**
+ * 通过file生成临时url，如果文件已存在对应的URL则直接返回
+ * @param file 
+ */
+const getFileUrl = (file: File) => {
+  if (fileUrlMap.has(file)) {
+    return fileUrlMap.get(file)!;
+  }
+  const url = URL.createObjectURL(file);
+  fileUrlMap.set(file, url);
+  return url;
+};
+
 const handlePreview = async (file: UploadProps['fileList'][number]) => {
   if (!file.url && !file.preview) {
     const tempUrl = URL.createObjectURL(file.originFileObj as File);
@@ -136,33 +152,28 @@ const handlePreview = async (file: UploadProps['fileList'][number]) => {
 // 自定义上传请求，直接上传文件
 const customRequest = async ({ file, onSuccess, onError, file: { uid } }: { file: File; onSuccess: (response: any) => void; onError: (error: any) => void; file: { uid: string } }) => {
   try {
-    // 创建 formData 对象
-    const formData = new FormData();
-    formData.append('file', file);
-    // 替换为实际的后端接口地址
-    const response = await fetch('http://localhost:3000/upload', {
-      method: 'POST',
-      body: formData
-    });
-    if (response.ok) {
-      const data = await response.json();
-      const url = data.url; // 假设服务器返回视频的 URL
-      const previewDataUrl = await getVideoPreview(file);
-      onSuccess({ status: 'success', url, previewDataUrl });
-      // 更新 fileList 中对应文件的 url 和 preview 属性
-      const targetFile = fileList.value.find(f => f.uid === uid);
-      if (targetFile) {
-        targetFile.url = url;
-        targetFile.thumbUrl = previewDataUrl;
-      }
-    } else {
-      throw new Error('上传失败');
+    const url = getFileUrl(file);
+    const previewDataUrl = await getVideoPreview(file);
+    onSuccess({ status: 'success', url, previewDataUrl });
+    // 更新 fileList 中对应文件的 url 和 preview 属性
+    const targetFile = fileList.value.find(f => f.uid === uid);
+    if (targetFile) {
+      targetFile.url = url;
+      targetFile.thumbUrl = previewDataUrl;
     }
   } catch (error) {
     console.error('文件上传失败:', error);
     onError(error);
   }
 };
+
+// 在组件销毁时释放所有 URL
+onUnmounted(() => {
+  fileUrlMap.forEach((url) => {
+    URL.revokeObjectURL(url);
+  });
+  fileUrlMap.clear();
+});
 </script>
 
 <style scoped>

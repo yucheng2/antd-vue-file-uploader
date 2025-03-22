@@ -24,50 +24,59 @@ import { nextTick, ref, watchEffect } from 'vue';
 import Player from 'xgplayer';
 import 'xgplayer/dist/index.min.css';
 
-const previewFile = ref([
-  'https://sf1-cdn-tos.huoshanstatic.com/obj/media-fe/xgplayer_doc_video/mp4/xgplayer-demo-360p.mp4',
-]);
-
-function getBase64(file: File) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.readAsDataURL(file);
-    reader.onload = () => resolve(reader.result);
-    reader.onerror = error => reject(error);
-  });
-}
-
 // 获取视频第一帧作为预览图
 async function getVideoPreview(file: File) {
   return new Promise((resolve, reject) => {
     const video = document.createElement('video');
-    video.src = URL.createObjectURL(file);
+    const url = URL.createObjectURL(file);
+    video.src = url;
     video.preload = 'metadata';
 
-    video.onloadedmetadata = () => {
+    const onLoadedMetadata = () => {
       video.currentTime = 0;
       const canvas = document.createElement('canvas');
-      canvas.width = video.videoWidth;
-      canvas.height = video.videoHeight;
+      // 避免小数计算
+      canvas.width = Math.floor(video.videoWidth);
+      canvas.height = Math.floor(video.videoHeight);
       const ctx = canvas.getContext('2d');
       if (ctx) {
-        function drawFrame() {
+        const drawFrame = () => {
           ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
           const previewDataUrl = canvas.toDataURL('image/jpeg');
+          // 释放临时 URL
+          URL.revokeObjectURL(url);
+          // 移除事件监听器
+          video.removeEventListener('seeked', onSeeked);
+          video.removeEventListener('loadedmetadata', onLoadedMetadata);
+          video.removeEventListener('error', onError);
           resolve(previewDataUrl);
-        }
-        video.onseeked = () => {
+        };
+        const onSeeked = () => {
           requestAnimationFrame(drawFrame);
         };
+        video.addEventListener('seeked', onSeeked);
         video.currentTime = 0;
       } else {
+        // 释放临时 URL
+        URL.revokeObjectURL(url);
+        // 移除事件监听器
+        video.removeEventListener('loadedmetadata', onLoadedMetadata);
+        video.removeEventListener('error', onError);
         reject(new Error('无法获取 canvas 上下文'));
       }
     };
 
-    video.onerror = () => {
+    const onError = () => {
+      // 释放临时 URL
+      URL.revokeObjectURL(url);
+      // 移除事件监听器
+      video.removeEventListener('loadedmetadata', onLoadedMetadata);
+      video.removeEventListener('error', onError);
       reject(new Error('无法加载视频'));
     };
+
+    video.addEventListener('loadedmetadata', onLoadedMetadata);
+    video.addEventListener('error', onError);
   });
 }
 

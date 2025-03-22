@@ -179,17 +179,96 @@ const customRequest = async ({ file, onSuccess, onError, file: { uid } }: { file
     }
 };
 
+async function getVideoPreviewFromUrl(url: string) {
+    return new Promise<string>((resolve, reject) => {
+        const video = document.createElement('video');
+        video.crossOrigin = 'anonymous';
+        video.src = url;
+        video.preload = 'metadata';
+
+        const abortController = new AbortController();
+        const signal = abortController.signal;
+
+        // 设置超时时间
+        const timeoutId = setTimeout(() => {
+            abortController.abort();
+            reject(new Error('Video loading timed out'));
+        }, 10000); // 10 秒超时
+
+        // 当视频元数据加载完成时触发
+        const onLoadedMetadata = () => {
+            clearTimeout(timeoutId);
+            video.currentTime = 0;
+            const canvas = document.createElement('canvas');
+            canvas.width = Math.floor(video.videoWidth);
+            canvas.height = Math.floor(video.videoHeight);
+            const ctx = canvas.getContext('2d');
+            if (ctx) {
+                const drawFrame = () => {
+                    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+                    try {
+                        const previewDataUrl = canvas.toDataURL('image/jpeg');
+                        // 移除事件监听器
+                        removeEventListeners();
+                        resolve(previewDataUrl);
+                    } catch (error) {
+                        // 移除事件监听器
+                        removeEventListeners();
+                        reject(new Error('Failed to export canvas data: ' + error.message));
+                    }
+                };
+                const onSeeked = () => {
+                    requestAnimationFrame(drawFrame);
+                };
+                video.addEventListener('seeked', onSeeked);
+                video.currentTime = 0;
+            } else {
+                // 移除事件监听器
+                removeEventListeners();
+                reject(new Error('Unable to get canvas context'));
+            }
+        };
+
+        const onError = () => {
+            clearTimeout(timeoutId);
+            // 移除事件监听器
+            removeEventListeners();
+            reject(new Error('Failed to load video'));
+        };
+
+        const removeEventListeners = () => {
+            video.removeEventListener('loadedmetadata', onLoadedMetadata);
+            video.removeEventListener('error', onError);
+            video.removeEventListener('abort', onAbort);
+        };
+
+        const onAbort = () => {
+            clearTimeout(timeoutId);
+            // 移除事件监听器
+            removeEventListeners();
+            reject(new Error('Video loading aborted'));
+        };
+
+        video.addEventListener('loadedmetadata', onLoadedMetadata, { signal });
+        video.addEventListener('error', onError, { signal });
+        video.addEventListener('abort', onAbort, { signal });
+    });
+}
+
 // 监听 modelValue 的变化
-watch(() => props.modelValue, (newValue) => {
+watch(() => props.modelValue, async (newValue) => {
     if (newValue) {
         // 加载 URL 类型的文件
-        fileList.value = newValue.map(url => ({
-            uid: String(Date.now()),
-            name: url.substring(url.lastIndexOf('/') + 1),
-            status: 'done',
-            url: url,
-            thumbUrl: url, // 假设缩略图 URL 与文件 URL 相同
-            originFileObj: null // 由于是 URL 类型的文件，没有本地文件对象
+        fileList.value = await Promise.all(newValue.map(async (url) => {
+            const thumbUrl = await getVideoPreviewFromUrl(url)
+            return {
+                uid: String(Date.now()),
+                name: url.substring(url.lastIndexOf('/') + 1),
+                status: 'done',
+                url: url,
+                thumbUrl: thumbUrl, // 假设缩略图 URL 与文件 URL 相同
+                originFileObj: null // 由于是 URL 类型的文件，没有本地文件对象
+            }
         }));
     }
 }, { immediate: true });

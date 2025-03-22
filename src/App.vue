@@ -1,7 +1,5 @@
 <template>
-  <div>
-    <UploadVideo v-model="videoFiles" />
-  </div>
+  <UploadVideo v-model="videoFiles" />
 </template>
 
 <script lang="ts" setup>

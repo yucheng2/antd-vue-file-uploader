@@ -158,6 +158,9 @@ const handlePreview = async (file: UploadProps['fileList'][number]) => {
     }
 };
 
+const isBlobUrl = (str: string) => {
+    return str.startsWith('blob:');
+};
 // 自定义上传请求，直接上传文件
 const customRequest = async ({ file, onSuccess, onError, file: { uid } }: { file: File; onSuccess: (response: any) => void; onError: (error: any) => void; file: { uid: string } }) => {
     try {
@@ -171,7 +174,7 @@ const customRequest = async ({ file, onSuccess, onError, file: { uid } }: { file
             targetFile.thumbUrl = previewDataUrl;
         }
         // 触发 update:modelValue 事件
-        const files = fileList.value.map(f => f.originFileObj as File);
+        const files = fileList.value.map(f => isBlobUrl(f.url) ? (f.originFileObj as File) : f);
         emit('update:modelValue', files);
     } catch (error) {
         console.error('文件上传失败:', error);

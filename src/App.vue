@@ -1,9 +1,18 @@
 <template>
-  <div>
+  <div id="app">
     <!-- 显示页面标题，表明这是一个演示自定义文件上传下载预览功能的demo页面 -->
     <h1>自定义文件上传下载预览 Demo 页面</h1>
     <p>此页面展示了自定义文件上传下载预览功能。下面是使用 UploadVideo 组件，通过 v-model 双向绑定 videoFiles 变量，实现视频文件的上传和显示。</p>
     <UploadVideo v-model="videoFiles" />
+    <br>
+    <br>
+    <br>
+    <div>
+      <div>fileList:</div>
+      <div>
+        {{ videoFiles }}
+      </div>
+    </div>
   </div>
 </template>
 
@@ -25,10 +34,17 @@ const videoFiles = ref<string[]>([
 
 <style scoped>
 /* 为页面标题添加样式，使其居中显示并设置文字颜色 */
+
+#app {
+  max-width: 1080px;
+  margin: 0 auto;
+}
+
 h1 {
   text-align: center;
   color: #333;
 }
+
 p {
   text-align: center;
   color: #666;
